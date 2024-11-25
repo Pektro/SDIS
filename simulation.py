@@ -1,4 +1,5 @@
 from node import Node
+import random
 
 class Simulation():
 
@@ -12,15 +13,21 @@ class Simulation():
         self.nodes = []
         
         self.create_nodes()
+        self.generate_neighbors()
 
     def create_nodes(self):
         for i in range(self.num_nodes):
             node = Node(i, i%10, i//10)
             self.nodes.append(node)
 
+    def generate_neighbors(self):
+        for i in range(self.num_nodes):
+            for j in range(i+1, self.num_nodes):
+                if random(0, 1) < self.num_nbr/self.num_nodes:
+                    self.nodes[i].add_neighbor(self.nodes[j])
+                    self.nodes[j].add_neighbor(self.nodes[i])
+
 if __name__ == "__main__":
     sim = Simulation(100, 4, 1, 0.1)
-    sim.create_nodes()
-    for i in range(100):
-        print(sim.nodes[i].id, sim.nodes[i].x, sim.nodes[i].y)
+    for i in range(10):
 
