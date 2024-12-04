@@ -4,15 +4,40 @@ import threading
 import signal
 import sys
 import time
+import json
+
+class Message:
+    def __init__(self, value, content, msg_type="UPDATE"):
+        self.value   = value        
+        self.content = content
+        self.type    = msg_type    # "UPDATE" or "REPLY" 
+
+    def to_json(self):
+        return json.dumps(self.__dict__)
+    
+    def update(self, msg):
+        self.value   = msg.value
+        self.content = msg.content
+
+    @staticmethod
+    def from_json(json_str):
+        data = json.loads(json_str)
+        return Message(data['value'], data['content'])
+
 
 class Node:
-    def __init__(self, id, x, y):
+    def __init__(self, id, x, y, protocol, timeout):
         self.id = id
         self.x = x
         self.y = y
         self.state = "Susceptible"  # "Susceptible", "Infected" or "Removed"
+        self.protocol = protocol
+        self.timeout = timeout
         self.neighbors = []
         self.prob_infection = 1
+
+        self.message = Message(0, "Default message")
+
         self.stop_event = threading.Event()
 
         ''' Create Socket > Bind > Get Port > Start Listening '''
@@ -25,6 +50,14 @@ class Node:
 
         print(f"Node {self.id} is listening on port {self.port}")
 
+        ''' Create'''
+        if protocol == "AntiEntropy":
+            self.protocol_thread = threading.Thread(target=self.run_AntiEntropyProtocol)
+        else:
+            self.protocol_thread = threading.Thread(target=self.run_DisseminationProtocol)
+
+        self.protocol_thread.start()
+
     def __str__(self):
         nbs = [neighbor.id for neighbor in self.neighbors]
         return f"Node {self.id}: {self.state}\nNeighbors: {nbs}"
@@ -32,11 +65,11 @@ class Node:
     ''''''''''''''''''''''''''''''''''''''
     '''    COMMUNICATION FUNCTIONS     '''
     ''''''''''''''''''''''''''''''''''''''
-    def accept_connection(self, socket):
-        socket.listen(5)
+    def accept_connection(self, sock):
+        sock.listen(5)
         while not self.stop_event.is_set():
             try:
-                conn, addr = socket.accept()
+                conn, addr = sock.accept()
                 threading.Thread(target=self.handle_connection, args=(conn, addr)).start()
             except socket.timeout:
                 continue
@@ -50,7 +83,14 @@ class Node:
                 if not data:
                     break
                 message = data.decode()
-                print(f"Node {self.id} received data: {message}")
+                rcv_message = Message.from_json(message)
+                #print(f"Node {self.id} received data: {message}")
+
+                if self.protocol == "AntiEntropy":
+                    self.rcv_AntiEntropy(rcv_message)
+                else:
+                    self.rcv_Dissemination(rcv_message)
+                
             except socket.timeout:
                 continue
             except OSError:
@@ -62,7 +102,7 @@ class Node:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as conn:
                 conn.connect(('localhost', neighbor.port))
                 conn.send(message.encode())
-                print(f"Node {self.id} sent message to Node {neighbor.id}: {message}")
+                #print(f"Node {self.id} sent message to Node {neighbor.id}: {message}")
         except Exception as e:
             print(f"Node {self.id} failed to send message to Node {neighbor.id}: {e}")
 
@@ -70,6 +110,7 @@ class Node:
         self.stop_event.set()
         self.socket.close()
         self.listen_thread.join()
+        self.protocol_thread.join()
 
     ''''''''''''''''''''''''''''''''
     '''    PROTOCOL FUNCTIONS    '''
@@ -78,16 +119,45 @@ class Node:
     def add_neighbor(self, neighbor):
         self.neighbors.append(neighbor)
 
-    def push(self):
-        # random int for nr of neighbors
-        n = random.randint(0, len(self.neighbors)-1)
-        neighbor_to_push = self.neighbors[n]
+    def run_AntiEntropyProtocol(self):
+        while not self.stop_event.is_set():
+            try:
+                time.sleep(self.timeout)
+                self.push_message()
+            except OSError:
+                break
 
-        self.set_timeout()
-        pass
+    def rcv_AntiEntropy(self, rcv_msg):
+        if rcv_msg.value > self.message.value:
+            self.state = "Infected"
+            self.message.update(rcv_msg)
 
-    def gossip_protocol(self):
-        pass
+    def run_DisseminationProtocol(self):
+        while not self.stop_event.is_set():
+            try:    
+                time.sleep(self.timeout)
+                if random.uniform(0, 1) < self.prob_infection:
+                    self.push_message()
+                else:
+                    self.state = "Removed"
+            except OSError:
+                break
+
+    def rcv_Dissemination(self, rcv_msg):
+        if rcv_msg.msg_type == "UPDATE":
+            if rcv_msg.value > self.message.value:
+                self.state = "Infected"
+                self.message.update(rcv_msg)
+
+        elif rcv_msg.msg_type == "REPLY":
+            if rcv_msg.value == self.message.value:
+                self.prob_infection -= 0.25
+
+    def push_message(self):
+        if not self.neighbors or self.state != "Infected":
+            return
+        neighbor = random.choice(self.neighbors)
+        self.send_message(self.message.to_json(), neighbor)
 
 if __name__ == "__main__":
     nodes = []
@@ -107,11 +177,6 @@ if __name__ == "__main__":
 
     node1.add_neighbor(node2)
     node2.add_neighbor(node1)
-
-    node1.send_message("Hello", node2)
-    node2.send_message("Hi", node1)
-    node1.send_message("How are you?", node2)
-    node2.send_message("I'm fine", node1)
 
     # Keep the main thread running
     try:
