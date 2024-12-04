@@ -90,7 +90,6 @@ class Node:
                     self.rcv_AntiEntropy(rcv_message)
                 else:
                     self.rcv_Dissemination(rcv_message)
-                
             except socket.timeout:
                 continue
             except OSError:
@@ -104,13 +103,13 @@ class Node:
                 conn.send(message.encode())
                 #print(f"Node {self.id} sent message to Node {neighbor.id}: {message}")
         except Exception as e:
-            print(f"Node {self.id} failed to send message to Node {neighbor.id}: {e}")
+            pass
 
     def stop(self):
         self.stop_event.set()
         self.socket.close()
-        self.listen_thread.join()
         self.protocol_thread.join()
+        self.listen_thread.join()
 
     ''''''''''''''''''''''''''''''''
     '''    PROTOCOL FUNCTIONS    '''
@@ -143,9 +142,10 @@ class Node:
             except OSError:
                 break
 
-    def rcv_Dissemination(self, rcv_msg):
+    def rcv_Dissemination(self, rcv_msg, neighbor):
         if rcv_msg.msg_type == "UPDATE":
             if rcv_msg.value > self.message.value:
+                self.send_message(Message(self.message.value, "REPLY").to_json(), neighbor)     # Reply with previous message value
                 self.state = "Infected"
                 self.message.update(rcv_msg)
 

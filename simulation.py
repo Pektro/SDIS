@@ -38,6 +38,7 @@ class Simulation:
     def run(self):
         
         self.generate_update()
+        
         try:
             while True:
                 time.sleep(2)
@@ -59,7 +60,7 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    sim = Simulation(num_nodes=50, num_nbr=4, prob_infection=1, delay_prob=0.1)
+    sim = Simulation(num_nodes=10, num_nbr=4, prob_infection=1, delay_prob=0.1)
     sim.run()
 
     # Keep the main thread running
