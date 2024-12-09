@@ -3,14 +3,16 @@ import sys
 import time
 import random
 from node import Node, Message
+from store_data import store_data
 
 class Simulation:
     def __init__(self, num_nodes, num_nbr, num_bizantines, protocol="AntiEntropy", T_max=20, seed=42):
         self.num_nodes = num_nodes
         self.num_nbr = num_nbr
-        num_bizantines = num_bizantines
+        self.num_bizantines = num_bizantines
         self.protocol = protocol
         self.T_max = T_max
+        self.seed = seed
         random.seed(seed)
 
         self.nodes = []
@@ -45,17 +47,25 @@ class Simulation:
         sus_count = self.num_nodes
 
         try:
-            while time.time() - start_time < self.T_max and sus_count > 0:
+            while timer < self.T_max and sus_count > 0:
                 time.sleep(0.1)
                 sus_count = sum([1 for node in self.nodes if node.state == "Susceptible"])
                 active_count = sum([1 for node in self.nodes if node.state == "Infected"])
                 infected = self.num_nodes - sus_count
-                timer += 0.1
+                timer = time.time() - start_time
                 if timer%2 == 0:
                     print(f"Infected Nodes: {infected}/{self.num_nodes} (active: {active_count})")
         except KeyboardInterrupt:                 
             self.stop_simulation()
             sys.exit(0)
+
+        print(f"Simulation finished in {timer:.2f} seconds")
+        msg_num = sum([node.msg_counter for node in self.nodes])
+        infected_percent = infected / self.num_nodes * 100
+
+        data = [self.seed, self.num_nodes, self.num_nbr/self.num_nodes*100, self.num_bizantines/self.num_nodes*100, self.protocol, round(timer, 3), infected_percent, msg_num]
+        store_data("sim_data.csv", data)
+        
         self.stop_simulation()
         sys.exit(0)
 
@@ -73,8 +83,8 @@ if __name__ == "__main__":
 
     sim = Simulation(num_nodes=50, num_nbr=5, num_bizantines=5, protocol="AntiEntropy", T_max=20)
     # Verify node 0 neighbor ids
-    print([neighbor.id for neighbor in sim.nodes[0].neighbors])
-    print([neighbor.id for neighbor in sim.nodes[10].neighbors])
+    # print([neighbor.id for neighbor in sim.nodes[0].neighbors])
+    # print([neighbor.id for neighbor in sim.nodes[10].neighbors])
     sim.run()
 
     # Keep the main thread running
