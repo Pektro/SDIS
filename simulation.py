@@ -4,13 +4,15 @@ import time
 import random
 from node import Node, Message
 
-
 class Simulation:
-    def __init__(self, num_nodes, num_nbr, prob_infection, delay_prob):
+    def __init__(self, num_nodes, num_nbr, num_bizantines, protocol="AntiEntropy", T_max=20, seed=42):
         self.num_nodes = num_nodes
         self.num_nbr = num_nbr
-        self.prob_infection = prob_infection
-        self.delay_prob = delay_prob
+        num_bizantines = num_bizantines
+        self.protocol = protocol
+        self.T_max = T_max
+        random.seed(seed)
+
         self.nodes = []
         self.update_value = 1
 
@@ -19,7 +21,7 @@ class Simulation:
 
     def create_nodes(self):
         for i in range(self.num_nodes):
-            node = Node(i, i % 10, i // 10, "AntiEntropy", 0.5)
+            node = Node(i, i % 10, i // 10, self.protocol, 0.5)
             self.nodes.append(node)
 
     def generate_neighbors(self):
@@ -38,15 +40,24 @@ class Simulation:
     def run(self):
         
         self.generate_update()
-        
+        start_time = time.time()
+        timer = 0
+        sus_count = self.num_nodes
+
         try:
-            while True:
-                time.sleep(2)
-                count = sum([1 for node in self.nodes if node.state == "Infected"])
-                print(f"Infected Nodes: {count}/{self.num_nodes}")
+            while time.time() - start_time < self.T_max and sus_count > 0:
+                time.sleep(0.1)
+                sus_count = sum([1 for node in self.nodes if node.state == "Susceptible"])
+                active_count = sum([1 for node in self.nodes if node.state == "Infected"])
+                infected = self.num_nodes - sus_count
+                timer += 0.1
+                if timer%2 == 0:
+                    print(f"Infected Nodes: {infected}/{self.num_nodes} (active: {active_count})")
         except KeyboardInterrupt:                 
             self.stop_simulation()
             sys.exit(0)
+        self.stop_simulation()
+        sys.exit(0)
 
     def stop_simulation(self):
         print("Stopping simulation...")
@@ -60,7 +71,10 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    sim = Simulation(num_nodes=10, num_nbr=4, prob_infection=1, delay_prob=0.1)
+    sim = Simulation(num_nodes=50, num_nbr=5, num_bizantines=5, protocol="AntiEntropy", T_max=20)
+    # Verify node 0 neighbor ids
+    print([neighbor.id for neighbor in sim.nodes[0].neighbors])
+    print([neighbor.id for neighbor in sim.nodes[10].neighbors])
     sim.run()
 
     # Keep the main thread running

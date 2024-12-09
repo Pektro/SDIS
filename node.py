@@ -7,10 +7,11 @@ import time
 import json
 
 class Message:
-    def __init__(self, value, content, msg_type="UPDATE"):
-        self.value   = value        
-        self.content = content
-        self.type    = msg_type    # "UPDATE" or "REPLY" 
+    def __init__(self, value, content, msg_type="UPDATE", sender_id=None):
+        self.value     = value        
+        self.content   = content
+        self.type      = msg_type    # "UPDATE" or "REPLY"
+        self.sender_id = sender_id
 
     def to_json(self):
         return json.dumps(self.__dict__)
@@ -22,7 +23,7 @@ class Message:
     @staticmethod
     def from_json(json_str):
         data = json.loads(json_str)
-        return Message(data['value'], data['content'])
+        return Message(data['value'], data['content'], data['type'], data['sender_id'])
 
 
 class Node:
@@ -36,7 +37,9 @@ class Node:
         self.neighbors = []
         self.prob_infection = 1
 
-        self.message = Message(0, "Default message")
+        self.msg_counter = 0
+
+        self.message = Message(0, "Default message", sender_id=self.id)
 
         self.stop_event = threading.Event()
 
@@ -48,7 +51,7 @@ class Node:
         self.listen_thread = threading.Thread(target=self.accept_connection, args=[self.socket])
         self.listen_thread.start()
 
-        print(f"Node {self.id} is listening on port {self.port}")
+        #print(f"Node {self.id} is listening on port {self.port}")
 
         ''' Create'''
         if protocol == "AntiEntropy":
@@ -70,7 +73,7 @@ class Node:
         while not self.stop_event.is_set():
             try:
                 conn, addr = sock.accept()
-                threading.Thread(target=self.handle_connection, args=(conn, addr)).start()
+                self.handle_connection(conn, addr)
             except socket.timeout:
                 continue
             except OSError:
@@ -89,7 +92,11 @@ class Node:
                 if self.protocol == "AntiEntropy":
                     self.rcv_AntiEntropy(rcv_message)
                 else:
-                    self.rcv_Dissemination(rcv_message)
+                    for n in self.neighbors:
+                        if n.id == rcv_message.sender_id:
+                            neighbor = n
+                            break
+                    self.rcv_Dissemination(rcv_message, neighbor)
             except socket.timeout:
                 continue
             except OSError:
@@ -104,12 +111,6 @@ class Node:
                 #print(f"Node {self.id} sent message to Node {neighbor.id}: {message}")
         except Exception as e:
             pass
-
-    def stop(self):
-        self.stop_event.set()
-        self.socket.close()
-        self.protocol_thread.join()
-        self.listen_thread.join()
 
     ''''''''''''''''''''''''''''''''
     '''    PROTOCOL FUNCTIONS    '''
@@ -143,14 +144,15 @@ class Node:
                 break
 
     def rcv_Dissemination(self, rcv_msg, neighbor):
-        if rcv_msg.msg_type == "UPDATE":
+        if rcv_msg.type == "UPDATE":
             if rcv_msg.value > self.message.value:
-                self.send_message(Message(self.message.value, "REPLY").to_json(), neighbor)     # Reply with previous message value
                 self.state = "Infected"
                 self.message.update(rcv_msg)
+            else:
+                self.send_message(Message(self.message.value, "Already Infected", "REPLY", self.id).to_json(), neighbor)
 
-        elif rcv_msg.msg_type == "REPLY":
-            if rcv_msg.value == self.message.value:
+        elif rcv_msg.type == "REPLY":
+            if rcv_msg.value >= self.message.value:
                 self.prob_infection -= 0.25
 
     def push_message(self):
@@ -158,6 +160,15 @@ class Node:
             return
         neighbor = random.choice(self.neighbors)
         self.send_message(self.message.to_json(), neighbor)
+        self.msg_counter += 1
+
+
+    def stop(self):
+        self.stop_event.set()
+        self.socket.close()
+        self.protocol_thread.join()
+        self.listen_thread.join()
+        print(f"Node {self.id} shutting down...")
 
 if __name__ == "__main__":
     nodes = []
