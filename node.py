@@ -32,8 +32,9 @@ class Node:
         self.x = x
         self.y = y
         self.state = "Susceptible"  # "Susceptible", "Infected" or "Removed"
-        self.protocol = protocol
-        self.timeout = timeout
+        self.protocol = protocol    # "AntiEntropy" or "Dissemination"
+        self.timeout = timeout      # Timeout for the protocol
+        self.behavior = "Normal"    # "Normal" or "Byzantine"
         self.neighbors = []
         self.prob_infection = 1
 
@@ -120,10 +121,11 @@ class Node:
         self.neighbors.append(neighbor)
 
     def run_AntiEntropyProtocol(self):
-        while not self.stop_event.is_set():
+        while not self.stop_event.is_set() and self.behavior == "Normal":
             try:
                 time.sleep(self.timeout)
-                self.push_message()
+                if self.prob_infection > 0:
+                    self.push_message()
             except OSError:
                 break
 
@@ -133,10 +135,10 @@ class Node:
             self.message.update(rcv_msg)
 
     def run_DisseminationProtocol(self):
-        while not self.stop_event.is_set():
+        while not self.stop_event.is_set() and self.behavior == "Normal":
             try:    
                 time.sleep(self.timeout)
-                if random.uniform(0, 1) < self.prob_infection:
+                if random.random() < self.prob_infection:
                     self.push_message()
                 else:
                     self.state = "Removed"
@@ -161,7 +163,6 @@ class Node:
         neighbor = random.choice(self.neighbors)
         self.send_message(self.message.to_json(), neighbor)
         self.msg_counter += 1
-
 
     def stop(self):
         self.stop_event.set()

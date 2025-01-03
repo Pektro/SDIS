@@ -7,12 +7,12 @@ from store_data import store_data
 
 class Simulation:
     def __init__(self, num_nodes, num_nbr, num_bizantines, protocol="AntiEntropy", T_max=20, seed=42):
-        self.num_nodes = num_nodes
-        self.num_nbr = num_nbr
+        self.num_nodes      = num_nodes
+        self.num_nbr        = num_nbr
         self.num_bizantines = num_bizantines
-        self.protocol = protocol
-        self.T_max = T_max
-        self.seed = seed
+        self.protocol       = protocol
+        self.T_max          = T_max
+        self.seed           = seed
         random.seed(seed)
 
         self.nodes = []
@@ -25,6 +25,14 @@ class Simulation:
         for i in range(self.num_nodes):
             node = Node(i, i % 10, i // 10, self.protocol, 0.5)
             self.nodes.append(node)
+        byz = 0
+
+        # Randomly select nodes to be Byzantine
+        while byz < self.num_bizantines:
+            node = random.choice(self.nodes)        # escolhidos com seed
+            if node.behavior == "Normal":
+                self.nodes[i].behavior = "Byzantine"
+                self.nodes[i].prob_infection = 0
 
     def generate_neighbors(self):
         for i in range(self.num_nodes):
@@ -40,20 +48,23 @@ class Simulation:
         self.update_value += 1
 
     def run(self):
-        
-        self.generate_update()
-        start_time = time.time()
+
+        print("Starting simulation...")
         timer = 0
-        sus_count = self.num_nodes
+        active_count = 1
+
+        start_time = time.time()
+        self.generate_update()
 
         try:
-            while timer < self.T_max and sus_count > 0:
+            while timer < self.T_max and active_count > 0:
                 time.sleep(0.1)
                 sus_count = sum([1 for node in self.nodes if node.state == "Susceptible"])
                 active_count = sum([1 for node in self.nodes if node.state == "Infected"])
                 infected = self.num_nodes - sus_count
+
                 timer = time.time() - start_time
-                if timer%2 == 0:
+                if int(timer)%2 == 0:
                     print(f"Infected Nodes: {infected}/{self.num_nodes} (active: {active_count})")
         except KeyboardInterrupt:                 
             self.stop_simulation()
@@ -81,11 +92,10 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    sim = Simulation(num_nodes=50, num_nbr=5, num_bizantines=5, protocol="AntiEntropy", T_max=20)
-    # Verify node 0 neighbor ids
-    # print([neighbor.id for neighbor in sim.nodes[0].neighbors])
-    # print([neighbor.id for neighbor in sim.nodes[10].neighbors])
-    sim.run()
+    for i in range(3): 
+        for j in range(30):
+            sim = Simulation(num_nodes=50, num_nbr=5, num_bizantines=0, protocol="AntiEntropy", T_max=20)
+            sim.run()
 
     # Keep the main thread running
     try:
