@@ -2,6 +2,7 @@ import signal
 import sys
 import time
 import random
+import argparse
 from node import Node, Message
 from store_data import store_data
 
@@ -71,7 +72,7 @@ class Simulation:
             while timer < self.T_max and active_count > 0 and infected < self.num_nodes:
                 time.sleep(0.1)
                 sus_count = sum([1 for node in self.nodes if node.state == "Susceptible"])
-                active_count = sum([1 for node in self.nodes if node.state == "Infected"])
+                active_count = sum([1 for node in self.nodes if (node.state == "Infected" and node.behavior == "Normal")])
                 infected = self.num_nodes - sus_count
 
                 timer = time.time() - start_time
@@ -86,8 +87,9 @@ class Simulation:
         infected_percent = infected / self.num_nodes * 100
 
         data = [self.seed, self.num_nodes, self.num_nbr, self.num_bizantines, self.protocol, round(timer, 3), infected_percent, msg_num]
-        store_data("sim_data.csv", data)
+        store_data("sim_data_dissemination_0_15.csv", data)
         
+        exit()
         self.stop_simulation()
 
     def stop_simulation(self):
@@ -95,23 +97,49 @@ class Simulation:
         for node in self.nodes:
             node.stop()
 
+# if __name__ == "__main__":
+#     def signal_handler(sig, frame):
+#         sim.stop_simulation()
+
+#     signal.signal(signal.SIGINT, signal_handler)
+
+#     # for seed in [42, 70, 420]:  # Seed values to test
+#     #     for num_nodes in [50, 100, 150]:  # Number of nodes to test
+#     #         for num_bizantines in [0.10, 0.25, 0.40]: # Percentage of Byzantine nodes to test
+#     #             for num_nbr in [0.05, 0.1, 0.15]:                  # Percentage of neighbors to test
+#     #                 print(f"Running simulation with {num_nodes} nodes, {num_nbr*100}% neighbors, and {num_bizantines*100}% Byzantine nodes")
+#     #                 for i in range(10):
+#     #                   sim = Simulation(num_nodes, num_nbr, num_bizantines, protocol="AntiEntropy", T_max=10, seed=seed)
+#     #                   sim.run()
+                    
+#     sim = Simulation(num_nodes=50, num_nbr=0.05, num_bizantines=0.1, protocol="AntiEntropy", T_max=20, seed=70)
+#     sim.run()    
+    
+#     # Keep the main thread running
+#     try:
+#         while True:
+#             time.sleep(1)
+#     except KeyboardInterrupt:
+#         signal_handler(None, None)
+
 if __name__ == "__main__":
+
     def signal_handler(sig, frame):
         sim.stop_simulation()
         sys.exit(0)
 
+    parser = argparse.ArgumentParser(description='Run the simulation with specified parameters.')
+    parser.add_argument('--num_nodes', type=int, default=50, help='Number of nodes')
+    parser.add_argument('--num_nbr', type=float, default=0.05, help='Percentage of neighbors')
+    parser.add_argument('--num_bizantines', type=float, default=0.1, help='Percentage of Byzantine nodes')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed')
+
+    args = parser.parse_args()
+
     signal.signal(signal.SIGINT, signal_handler)
 
-    # for seed in [42, 70, 420]:  # Seed values to test
-    #     for num_nodes in [50, 100, 150]:  # Number of nodes to test
-    #         for num_bizantines in [0.10, 0.25, 0.40]: # Percentage of Byzantine nodes to test
-    #             for num_nbr in [0.05, 0.1, 0.15]:                  # Percentage of neighbors to test
-    #                 print(f"Running simulation with {num_nodes} nodes, {num_nbr*100}% neighbors, and {num_bizantines*100}% Byzantine nodes")
-    #                 for i in range(10):
-    #                   sim = Simulation(num_nodes, num_nbr, num_bizantines, protocol="AntiEntropy", T_max=10, seed=seed)
-    #                   sim.run()
-                    
-    sim = Simulation(num_nodes=50, num_nbr=0.05, num_bizantines=0.1, protocol="AntiEntropy", T_max=20, seed=70)
+    print(f"Running simulation with {args.num_nodes} nodes, {args.num_nbr*100}% neighbors, {args.num_bizantines*100}% Byzantine nodes, and seed {args.seed}")
+    sim = Simulation(num_nodes=args.num_nodes, num_nbr=args.num_nbr, num_bizantines=args.num_bizantines, protocol="Dissemination", T_max=20, seed=args.seed)
     sim.run()    
     
     # Keep the main thread running

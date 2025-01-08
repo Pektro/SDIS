@@ -155,7 +155,7 @@ class Node:
 
         elif rcv_msg.type == "REPLY":
             if rcv_msg.value >= self.message.value:
-                self.prob_infection -= 0.25
+                self.prob_infection -= 0.15
 
     def push_message(self):
         if not self.neighbors or self.state != "Infected":
