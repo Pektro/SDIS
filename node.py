@@ -53,14 +53,10 @@ class Node:
         self.listen_thread.start()
 
         #print(f"Node {self.id} is listening on port {self.port}")
-
-        ''' Create'''
         if protocol == "AntiEntropy":
             self.protocol_thread = threading.Thread(target=self.run_AntiEntropyProtocol)
         else:
             self.protocol_thread = threading.Thread(target=self.run_DisseminationProtocol)
-
-        self.protocol_thread.start()
 
     def __str__(self):
         nbs = [neighbor.id for neighbor in self.neighbors]

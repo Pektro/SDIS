@@ -37,6 +37,10 @@ class Simulation:
                 self.nodes[i].behavior = "Byzantine"
                 self.nodes[i].prob_infection = 0
                 byz += 1
+        
+        for node in self.nodes:
+            if node.behavior == "Normal":
+                node.protocol_thread.start()
 
     def generate_neighbors(self):
         for i in range(self.num_nodes):
